@@ -12,7 +12,7 @@ def flattenOnce(iterable: List[List[Any]]) -> List[Any]:
 
 
 def acceptedByWhitelist(line: str, whitelist: Set[Pattern[str]]) -> bool:
-    return False not in [(rule.match(line) is not None) for rule in whitelist]
+    return True in [(rule.match(line) is not None) for rule in whitelist]
 
 
 def acceptedByBlacklist(line: str, blacklist: Set[Pattern[str]]) -> bool:
