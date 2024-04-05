@@ -10,6 +10,21 @@ from pathlib import Path
 outputDir = Path("./output")
 
 
+class NotAFileException(Exception):
+    """Raised when a path does not lead to a file."""
+    pass
+
+
+class NotADirectoryException(Exception):
+    """Raised when a path does not lead to a directory."""
+    pass
+
+
+class InvalidOutputNamesCountException(Exception):
+    """Raised when the amount of output names does not equal the amount of input files."""
+    pass
+
+
 class IOPair(NamedTuple):
     input: Path
     output: Path
@@ -63,8 +78,7 @@ def checkArguments(
     """Check all arguments for validity."""
     # Check if there is a bijection between the input files and output names
     if outputNames and len(outputNames) != len(files):
-        print("The amount of output names does not match the amount of input files.")
-        exit(1)
+        raise InvalidOutputNamesCountException(f"The amount {len(outputNames)} of output names does not equal the amount {len(files)} of input files!")
 
 
 def getInputPaths(
@@ -80,14 +94,13 @@ def getInputPaths(
     if directory:
         nonexistentDirectory = next((directory for directory in inputPaths if not directory.is_dir()), None)
         if nonexistentDirectory is not None:
-            print(f"{nonexistentDirectory} is not a directory.", file=sys.stderr)
-            exit(1)
+            raise NotADirectoryException(f"{nonexistentDirectory} is not a directory!")
         inputPaths = getFilesInDirectories(inputPaths)
     else:
         nonexistentFile = next((file for file in allFiles if not file.is_file()), None)
         if nonexistentFile is not None:
-            print(f"{nonexistentFile} is not a file.", file=sys.stderr)
-            exit(1)
+            raise NotAFileException(f"{nonexistentFile} is not a file!")
+            
     
     return inputPaths
 
@@ -142,7 +155,7 @@ def processFilterList(filterPathSet: Set[str]) -> Set[Pattern[str]]:
                 try:
                     filter = re.compile(line.removesuffix('\n'))
                 except re.error:
-                    print(f"{line} in {filterFile} is not a valid regular expression; ignoring.", file=sys.stderr)
+                    print(f"{line} in {filterFile} is not a valid regular expression; ignoring!", file=sys.stderr)
                 else:
                     filterSet.add(filter)
 
@@ -217,12 +230,16 @@ def ssaCleanup(
 
 
 if __name__ == "__main__":
-    args = parseArguments()
-    ssaCleanup(
-        args.files,
-        args.blacklists,
-        args.whitelists,
-        args.outputNames,
-        args.directory,
-        args.delete,
-    )
+    try:
+        args = parseArguments()
+        ssaCleanup(
+            args.files,
+            args.blacklists,
+            args.whitelists,
+            args.outputNames,
+            args.directory,
+            args.delete,
+        )
+    except Exception as e:
+        print(e, file=sys.stderr)
+        exit(1)
