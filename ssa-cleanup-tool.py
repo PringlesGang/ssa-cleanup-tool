@@ -123,12 +123,12 @@ def getIOPairs(
 
 def acceptedByWhitelist(line: str, whitelist: Set[Pattern[str]]) -> bool:
     """Check whether the provided line adheres to the whitelist."""
-    return whitelist == set() or next((line for rule in whitelist if rule.match(line)), None) is not None
+    return whitelist == set() or next((line for rule in whitelist if rule.search(line)), None) is not None
 
 
 def acceptedByBlacklist(line: str, blacklist: Set[Pattern[str]]) -> bool:
     """Check whether the provided line adheres to the blacklist."""
-    return next((line for rule in blacklist if rule.match(line)), None) is None
+    return next((line for rule in blacklist if rule.search(line)), None) is None
 
 
 def processFilterList(filterPathSet: Set[str]) -> Set[Pattern[str]]:
