@@ -3,6 +3,8 @@ A tool for cleaning up SubStationAlpha subtitle files for cleaner distribution, 
 
 This tool allows you to clean up a batch of SSA files at once, keeping lines matching a whitelist and discarding lines matching a blacklist.
 
+Built for Python 3.11.9.
+
 ### Motivation
 This tool could be useful for better management of SSA projects.
 Only a single SSA file could be maintained, which could be parsed down to a _signs/songs_ file using filters, as well as automatically removing compiled effects for cleaner version control.
@@ -44,6 +46,9 @@ def ssaCleanup(
 ### `files [files ...]` (list of paths)
 A list paths to SSA files (or paths to directories; see [`-d`](#d---directory)) serving as the input that will be processed by the tool.
 
+> [!IMPORTANT]
+> Each file is expected to be in UTF-8.
+
 ### `[-d]`, `[--directory]`
 Adding this tag treats the provided [`files`](#files-files--list-of-paths) as directories. The program will search through these directories (non-recursively), and gather all files within to be used as input.
 
@@ -59,8 +64,14 @@ Adding this tag will make sure every file in the output folder will not be delet
 ### `[-b BLACKLISTS [BLACKLISTS ...]]`, `[--blacklist BLACKLISTS [BLACKLISTS ...]]` (list of paths)
 This argument allows you to provide a list of paths to blacklist files. These files contain rules against which each line in the input will be tested. If even one of these tests passes (i.e. it matches what is stated within the blacklist), this line will not appear in the result.
 
+> [!IMPORTANT]
+> Each file is expected to be in UTF-8.
+
 ### `[-w WHITELISTS [WHITELISTS ...]]`, `[--whitelist WHITELISTS [WHITELISTS ...]]` (list of paths)
 This argument allows you to provide a list of paths to whitelist files. These files contain rules against which each line in the input will be tested. If none of these tests pass (i.e. no rule in the whitelists matches with the line), this line will not appear in the result.
+
+> [!IMPORTANT]
+> Each file is expected to be in UTF-8.
 
 ### `[-o OUTPUTNAMES [OUTPUTNAMES ...]]`, `[--output OUTPUTNAMES [OUTPUTNAMES ...]]` (list of strings)
 Upon using this tag, a list **of equal length to the amount of input [`files`](#files-files--list-of-paths) provided must follow**, listing the output names per input file, in order. These files will be placed under the provided name in the outputs folder.
@@ -82,7 +93,7 @@ For each of these pairs, a file with the corresponding output name is created in
 - the line matches **not a single rule** specified in any of the blacklists.
 
 ## Whitelist/blacklist parsing
-Each filterlist (whitelist or blacklist) will be treated as a plaintext, newline-separated list of RegEx rules.
+Each filterlist (whitelist or blacklist) will be treated as a plaintext UTF-8, newline-separated list of RegEx rules.
 
 - If there is no part of the line that matches with any of the rules in a whitelist, it is not written to the output.
 - If there is a part that of the line that matches even one of the rules in the blacklist, it is not written to the output.

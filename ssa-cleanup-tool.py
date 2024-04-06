@@ -1,3 +1,5 @@
+#!/usr/bin/env python3.12
+
 import argparse
 import os
 import sys
@@ -150,7 +152,7 @@ def processFilterList(filterPathSet: Set[str]) -> Set[Pattern[str]]:
     
     filterSet: Set[Pattern[str]] = set()
     for filterFile in filterFileSet:
-        with open(filterFile, 'r') as fileStream:
+        with open(filterFile, 'r', encoding="UTF-8") as fileStream:
             for line in fileStream:
                 try:
                     filter = re.compile(line.removesuffix('\n'))
@@ -171,8 +173,8 @@ def processFile(
     if ssaFile.output.exists():
         os.remove(ssaFile.output)
     
-    with open(ssaFile.input, 'r') as inputStream:
-        with open(ssaFile.output, 'x') as outputStream:
+    with open(ssaFile.input, 'r', encoding="UTF-8") as inputStream:
+        with open(ssaFile.output, 'x', encoding="UTF-8") as outputStream:
             for line in filter(
                 lambda line: acceptedByWhitelist(line, whitelist) and acceptedByBlacklist(line, blacklist),
                 inputStream
