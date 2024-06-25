@@ -1,7 +1,9 @@
 # ssa-cleanup-tool
 A tool for cleaning up SubStationAlpha subtitle files for cleaner distribution, version control and build strategies.
 
-This tool allows you to clean up a batch of SSA files at once, keeping lines matching a whitelist and discarding lines matching a blacklist.
+This tool allows you to clean up a batch of SSA files at once, in various ways:
+- keeping lines matching a whitelist and discarding lines matching a blacklist;
+- replacing entire sections with predefined text.
 
 Built for Python 3.11.9.
 
@@ -16,38 +18,39 @@ Is the documentation unclear, or have you run into a bug? Feel free to open an i
 Pull requests for bug fixes (or even new features!) are also always welcome! :)
 
 # Contents
-- [How to use](#how-to-use)
-    - [Arguments](#arguments)
-- [Behaviour](#behaviour)
-    - [Main program](#main-program)
-    - [Whitelist/blacklist parsing](#whitelistblacklist-parsing)
+- [Main program](#main-program)
+- [RegEx parser](#regex-parser)
+    - [Syntax](#syntax)
+    - [Behaviour](#behaviour)
     - [Exceptions](#exceptions)
+- [Section replacer](#section-replacer)
+    - [Syntax](#syntax-1)
+    - [Behaviour](#behaviour-1)
+    - [Exceptions](#exceptions-1)
 
-# How to use
-To process a number of SSA files, simply run the script `ssa-cleanup-tool.py` with command-line arguments to suit your needs:
-```
-ssa-cleanup-tool.py files [files ...] [-d] [-n] [-b BLACKLISTS [BLACKLISTS ...]] [-w WHITELISTS [WHITELISTS ...]] [-o OUTPUTNAMES [OUTPUTNAMES ...]]
-```
+# Main program
+The program consists of multiple subprograms:
+- **RegEx parser**: A parser that keeps or discards lines based on RegEx black- and whitelists.
+- **Section replacer**: Replaces entire SSA sections with predefined custom text, or removes sections outright.
 
-Alternatively it can be imported as a module, after which the following function can be accessed:
-```py
-def ssaCleanup(
-    files: List[str],
-    blacklists: Set[str] = set(),
-    whitelists: Set[str] = set(),
-    outputNames: List[str] = [],
-    directory: bool = False,
-    delete: bool = False,
-) -> None:
-```
+A comprehensive list of all available tools can be found with the `ssa-cleanup-tool.py -h` command.
 
-## Arguments
+# RegEx parser
+This tool allows you to provide black- and whitelists of RegEx expressions, and have lines in the parsed SSA file either kept or discarded based on whether they match those expressions or not.
+
+## Syntax
+```
+ssa-cleanup-tool.py parse-regex [-h] [-d] [-n] files [files ...] [-b BLACKLISTS [BLACKLISTS ...]] [-w WHITELISTS [WHITELISTS ...]] [-o OUTPUT [OUTPUT ...]]
+```
 
 ### `files [files ...]` (list of paths)
 A list paths to SSA files (or paths to directories; see [`-d`](#d---directory)) serving as the input that will be processed by the tool.
 
 > [!IMPORTANT]
 > Each file is expected to be in UTF-8.
+
+### `[-h]`, `[--help]`
+Print help documentation for the RegEx parser.
 
 ### `[-d]`, `[--directory]`
 Adding this tag treats the provided [`files`](#files-files--list-of-paths) as directories. The program will search through these directories (non-recursively), and gather all files within to be used as input.
@@ -73,26 +76,19 @@ This argument allows you to provide a list of paths to whitelist files. These fi
 > [!IMPORTANT]
 > Each file is expected to be in UTF-8.
 
-### `[-o OUTPUTNAMES [OUTPUTNAMES ...]]`, `[--output OUTPUTNAMES [OUTPUTNAMES ...]]` (list of strings)
-Upon using this tag, a list **of equal length to the amount of input [`files`](#files-files--list-of-paths) provided must follow**, listing the output names per input file, in order. These files will be placed under the provided name in the outputs folder.
+### `[-o OUTPUT [OUTPUT ...]]`, `[--output OUTPUT [OUTPUT ...]]` (list of paths)
+Upon using this tag, a list **of equal length to the amount of input [`files`](#files-files--list-of-paths) provided must follow**, listing the output paths per input file, in order.
+
+If not used, the parsed files will be saved in the `./output/` folder next to the main script under the same names as the input files.
 
 > [!WARNING]
 > This argument reacts unpredictably with the [`-d`](#d---directory) argument.
 
 > [!IMPORTANT]
-> If the amount of output names passed is not exactly equal to the amount of [`files`](#files-files--list-of-paths) passed, the program will terminate with an error.
+> If the amount of output paths passed is not exactly equal to the amount of [`files`](#files-files--list-of-paths) passed, the program will terminate with an error.
 
-# Behaviour
-## Main program
-This program will first clear out all files the `./output/` directory (creating it if it doesn't exist, and not clearing it in case of `-n`).
-It will then take all files specified black- and whitelists in the `-b` and `-w`, and parse every rule mentioned within.
-Next, it will take all files mentioned in the `files` section (taking all files in those _directories_ instead, in case of `-d`), and match them with their respective output name as given in `-o`, defaulting to their original names if this argument is not provided.
 
-For each of these pairs, a file with the corresponding output name is created in the `./output/` directory (or overwritten if a file under the same name is already there), and the input will be read line-by-line. Each line will be tested; being written into the output file if and only if
-- the line matches **at least one rule** in any of the whitelists (or if there are no whitelist rules given), and
-- the line matches **not a single rule** specified in any of the blacklists.
-
-## Whitelist/blacklist parsing
+## Behaviour
 Each filterlist (whitelist or blacklist) will be treated as a plaintext UTF-8, newline-separated list of RegEx rules.
 
 - If there is no part of the line that matches with any of the rules in a whitelist, it is not written to the output.
@@ -103,11 +99,81 @@ Each filterlist (whitelist or blacklist) will be treated as a plaintext UTF-8, n
 > As this program checks against individual lines, and as each filter file is newline-separated, it is impossible to implement newlines in your RegEx rules.
 
 ## Exceptions
-### InvalidOutputNamesCountException
-Raised if the amount of output names does not match the amount of input files.
+### InvalidOutputCountException
+Raised if the amount of output paths does not match the amount of input files.
 
 ### NotAFileException
 A filepath provided in the input files, whitelist or blacklists arguments does not lead to a file.
 
 ### NotADirectoryException
-A filepath provided in the input files argument does not lead to a directory, and the `-d` flag is set.
+A filepath provided in the input files (in case of `-d`) or output paths argument does not lead to a directory.
+
+# Section replacer
+This tool allows you to replace entire sections of SSA files with pre-written custom ones.
+
+Simply write an SSA file as you would normally, and all provided sections—denoted by a label in \[square brackets\]—in the input files will be replaced by what's below that label in the template files.
+
+A section can also be removed outright, but entering `~[Section label]` in the template.
+
+## Syntax
+```
+ssa-cleanup-tool.py replace-sections [-h] [-d] [-n] files [files ...] [-t TEMPLATES [TEMPLATES ...]] [-o OUTPUT [OUTPUT ...]]
+```
+
+### `files [files ...]` (list of paths)
+A list paths to SSA files (or paths to directories; see [`-d`](#d---directory)) serving as the input that will be processed by the tool.
+
+> [!IMPORTANT]
+> Each file is expected to be in UTF-8.
+
+### `[-h]`, `[--help]`
+Print help documentation for the section replacer.
+
+### `[-d]`, `[--directory]`
+Adding this tag treats the provided [`files`](#files-files--list-of-paths) as directories. The program will search through these directories (non-recursively), and gather all files within to be used as input.
+
+> [!NOTE]
+> It is impossible to mix files and directories.
+
+### `[-n]`, `[--no-delete]`
+Adding this tag will make sure every file in the output folder will not be deleted, with exception to those files that will be overwritten by newly cleaned files with the same name.
+
+> [!NOTE]
+> No directories within the `./output/` directory (or anything within those directories) will be deleted, regardless of this tag.
+
+### `[-t TEMPLATES [TEMPLATES ...]]`, `[--templates TEMPLATES [TEMPLATES ...]]` (list of paths)
+This argument allows you to provide a list of paths to template files. These files contain the sections that need to be replaced, and what they need to be replaced with (or if they need to be removed outright).
+
+> [!IMPORTANT]
+> Each file is expected to be in UTF-8-BOM.
+
+### `[-o OUTPUT [OUTPUT ...]]`, `[--output OUTPUT [OUTPUT ...]]` (list of paths)
+Upon using this tag, a list **of equal length to the amount of input [`files`](#files-files--list-of-paths) provided must follow**, listing the output paths per input file, in order.
+
+If not used, the parsed files will be saved in the `./output/` folder next to the main script under the same names as the input files.
+
+> [!WARNING]
+> This argument reacts unpredictably with the [`-d`](#d---directory) argument.
+
+> [!IMPORTANT]
+> If the amount of output paths passed is not exactly equal to the amount of [`files`](#files-files--list-of-paths) passed, the program will terminate with an error.
+
+## Behaviour
+Each template file will be treated as a plaintext UTF-8-BOM file, structured in the same way as a regular SSA file.
+
+Each section, starting with a line consisting of a label between [square brackets] and nothing else, will define what the same section in the source files will be replaced with.
+
+A section can be told te be removed outright by placing a '`~`' before the square-bracketed label. All text underneath, until the next label definition, will be ignored.
+
+Redefinitions of the same section result in undefined behaviour.
+
+## Exceptions
+
+### InvalidOutputCountException
+Raised if the amount of output paths does not match the amount of input files.
+
+### NotAFileException
+A filepath provided in the input files or template files arguments does not lead to a file.
+
+### NotADirectoryException
+A filepath provided in the input files (in case of -d) or output paths argument does not lead to a directory.
