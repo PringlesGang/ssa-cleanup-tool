@@ -5,8 +5,8 @@ import re
 import sys
 from typing import List, Set
 
-from src.CommonUtils import IOPair, checkFileExistence, clearDirectory, getFileCount, getIOPairs
-from src.Exceptions import InvalidOutputNamesCountException
+from src.CommonUtils import IOPair, checkFileExistence, clearDirectory, getIOPairs
+from src.Exceptions import InvalidOutputCountException
 
 
 outputDir = Path(sys.path[0]).joinpath("output")
@@ -33,15 +33,15 @@ def addSubparser(subparser: argparse.ArgumentParser) -> None:
     subparser.add_argument("-n", "--no-delete", dest="delete", action="store_false",
                            help="Don't clear out the output directory.")
     subparser.add_argument("-t", "--templates", dest="templates", type=str, nargs='+',
-                           help="Filepaths to the csv template files, mapping section names to filepaths to text files they should be replaced with.")
-    subparser.add_argument("-o", "--output", dest="outputNames", type=str, nargs='+', default=[],
-                           help="Output names for each given input, in order.")
+                           help="Filepaths to the template files, dictating the text under what sections should be replaced with what.")
+    subparser.add_argument("-o", "--output", dest="output", type=str, nargs='+', default=[],
+                           help="Output paths for each given input, in order.")
 
 
 def checkArguments(
     files: List[str],
     templates: Set[str],
-    outputNames: List[str],
+    output: List[str],
     directory: bool,
     delete: bool,
 ) -> None:
@@ -49,10 +49,10 @@ def checkArguments(
     checkFileExistence(files, directory)
     checkFileExistence(templates)
 
-    # Check if there is a bijection between the input and output names
-    fileCount = getFileCount(files, directory)
-    if outputNames and len(outputNames) != fileCount:
-        raise InvalidOutputNamesCountException(f"The amount {len(outputNames)} of output names does not equal the amount {fileCount} of input files!")
+    # Check if there is a bijection between the input and output paths
+    if output and len(output) != len(files):
+        raise InvalidOutputCountException(f"The amount {len(output)} of output paths does not equal the amount {len(files)} of input files!")
+    checkFileExistence(list(map(lambda path: str(Path(path).parent.absolute()), output)), True)
 
 
 def processTemplateList(templates: Set[str]) -> tuple[dict[str, list[str]], set[str]]:
@@ -117,7 +117,7 @@ def processFile(ssaFile: IOPair, sectionToTemplateMap: dict[str, list[str]], rem
 def replaceSections(
     files: List[str],
     templates: Set[str],
-    outputNames: List[str] = [],
+    output: List[str] = [],
     directory: bool = False,
     delete: bool = False,
 ) -> None:
@@ -126,19 +126,19 @@ def replaceSections(
     Args:
         files (List[str]): Filepaths to the ssa files, or directories containing them.
         templates (Set[str]): Filepaths to the template files denoting what sections to overwrite with what, or what sections to remove outright.
-        outputNames (List[str], optional): Output names for each given input, in order. Defaults to [].
+        output (List[str], optional): Output paths for each given input, in order. Defaults to [].
         directory (bool, optional): Set to True if the `files` argument consists of directories. Defaults to False.
         delete (bool, optional): Set to True if you want the program to clear the output directory first. Defaults to False.
     """
     checkArguments(
         files,
         templates,
-        outputNames,
+        output,
         directory,
         delete
     )
 
-    IOPairs = getIOPairs(files, outputNames, directory, outputDir)
+    IOPairs = getIOPairs(files, output, directory, outputDir)
     (sectionToTemplateMap, removeSections) = processTemplateList(templates)
 
     # Create the output directory

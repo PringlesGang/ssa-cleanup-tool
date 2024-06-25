@@ -27,7 +27,7 @@ def controlFlow(args: argparse.Namespace):
                 args.files,
                 args.blacklists,
                 args.whitelists,
-                args.outputNames,
+                args.output,
                 args.directory,
                 args.delete,
             )
@@ -35,7 +35,7 @@ def controlFlow(args: argparse.Namespace):
             SectionReplacer.replaceSections(
                 args.files,
                 args.templates,
-                args.outputNames,
+                args.output,
                 args.directory,
                 args.delete,
             )

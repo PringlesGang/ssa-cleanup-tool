@@ -8,6 +8,6 @@ class NotADirectoryException(Exception):
     pass
 
 
-class InvalidOutputNamesCountException(Exception):
-    """Raised when the amount of output names does not equal the amount of input files."""
+class InvalidOutputCountException(Exception):
+    """Raised when the amount of output paths does not equal the amount of input files."""
     pass
