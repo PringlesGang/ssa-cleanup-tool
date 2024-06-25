@@ -1,41 +1,26 @@
-#!/usr/bin/env python3.12
-
 import argparse
 import os
 import sys
 import re
 
-from typing import Any, Iterable, List, Set, Pattern, NamedTuple
+from typing import List, Set, Pattern
 from pathlib import Path
-from src.Exceptions import NotADirectoryException, NotAFileException, InvalidOutputNamesCountException
+from src.CommonUtils import IOPair, checkFileExistence, clearDirectory, getFileCount, getIOPairs
+from src.Exceptions import InvalidOutputNamesCountException
 
 
-outputDir = Path("./output")
+outputDir = Path(sys.path[0]).joinpath("output")
 
-
-class IOPair(NamedTuple):
-    input: Path
-    output: Path
-
-
-def flattenOnce(iterable: Iterable[Iterable[Any]]) -> Iterable[Any]:
-    """Flatten one level of a multi-level Iterable."""
-    return [item for item in [deepIterable for deepIterable in iterable]]
-
-
-def getFilesInDirectories(directories: List[Path]) -> List[Path]:
-    """Get all files within the provided directories.
-    Not recursive!
-    """
-    files: List[Path] = []
-    
-    for directory in directories:
-        files += [file for file in directory.iterdir() if file.is_file()]
-        
-    return files
 
 def addSubparser(subparser: argparse.ArgumentParser) -> None:
-    subparser.description = """Each line will be checked against all RegEx patterns in the black- and whitelists, and discarded or kept accordingly."""
+    subparser.description = "Each line will be checked against all RegEx patterns in the black- and whitelists, and discarded or kept accordingly."
+    subparser.epilog = (
+        "Each filter contains newline-separated RegEx patterns.\n"
+        "If a line in an input file matches at least one of these patterns in a whitelist, it will be kept.\n"
+        "If a line in an input file matches at least one of these patterns in a blacklist, it will be discarded.\n"
+        "If a line in an input file matches at least one of these patterns in both a whitelist and a blacklist, it will be discarded.\n"
+        "\n"
+    )
 
     subparser.add_argument("files", type=str, nargs='+',
                         help="Filepaths to the ssa files, or directories containing them.")
@@ -60,62 +45,15 @@ def checkArguments(
     delete: bool,
 ) -> None:
     """Check all arguments for validity."""
-    # Check if there is a bijection between the input files and output names
-    if outputNames and len(outputNames) != len(files):
-        raise InvalidOutputNamesCountException(f"The amount {len(outputNames)} of output names does not equal the amount {len(files)} of input files!")
-
-
-def getInputPaths(
-    files: List[str],
-    blacklists: Set[str],
-    whitelists: Set[str],
-    directory: bool,
-) -> List[Path]:
-    """Convert the input files list into a list of Paths, and coalless the directories if necessary."""
     # Check if all files exist
-    inputPaths = list(map(Path, files))
-    allFiles = map(Path, set(inputPaths).union(blacklists).union(whitelists))
-    if directory:
-        nonexistentDirectory = next((directory for directory in inputPaths if not directory.is_dir()), None)
-        if nonexistentDirectory is not None:
-            raise NotADirectoryException(f"{nonexistentDirectory} is not a directory!")
-        inputPaths = getFilesInDirectories(inputPaths)
-    else:
-        nonexistentFile = next((file for file in allFiles if not file.is_file()), None)
-        if nonexistentFile is not None:
-            raise NotAFileException(f"{nonexistentFile} is not a file!")
-            
-    
-    return inputPaths
+    checkFileExistence(files, directory)
+    checkFileExistence(blacklists)
+    checkFileExistence(whitelists)
 
-
-def getIOPairs(
-    files: List[str],
-    blacklists: Set[str],
-    whitelists: Set[str],
-    outputNames: List[str],
-    directory: bool,
-) -> Set[IOPair]:
-    """Pair up the input paths with the corresponding output paths."""
-    inputPaths = getInputPaths(
-        files,
-        blacklists,
-        whitelists,
-        directory
-    )
-    
-    return set(
-        map( # Map to IOPair
-            lambda pair: IOPair(pair[0], pair[1]),
-            zip( # Pair up input files and output files
-                inputPaths,
-                map( # Get output path
-                    lambda name: outputDir.joinpath(name),
-                    # Use output names if provided; otherwise use input names
-                    outputNames if outputNames else list(map(lambda file: Path(file).name, inputPaths)))
-                )
-            )
-        )
+    # Check if there is a bijection between the input files and output names
+    fileCount = getFileCount(files, directory)
+    if outputNames and len(outputNames) != fileCount:
+        raise InvalidOutputNamesCountException(f"The amount {len(outputNames)} of output names does not equal the amount {fileCount} of input files!")
 
 
 def acceptedByWhitelist(line: str, whitelist: Set[Pattern[str]]) -> bool:
@@ -176,8 +114,8 @@ def parse(
 
     Args:
         files (List[str]): Filepaths to the ssa files, or directories containing them.
-        blacklist (List[str], optional): Filepaths to newline-separated blacklist files. Defaults to set().
-        whitelist (List[str], optional): Filepaths to newline-separated whitelist files. Defaults to set().
+        blacklist (Set[str], optional): Filepaths to newline-separated blacklist files. Defaults to set().
+        whitelist (Set[str], optional): Filepaths to newline-separated whitelist files. Defaults to set().
         outputNames (List[str], optional): Output names for each given input, in order. Defaults to [].
         directory (bool, optional): Set to True if the `files` argument consists of directories. Defaults to False.
         delete (bool, optional): Set to True if you want the program to clear the output directory first. Defaults to False.
@@ -191,13 +129,7 @@ def parse(
         delete
     )
     
-    IOPairs = getIOPairs(
-        files,
-        blacklists,
-        whitelists,
-        outputNames,
-        directory
-    )
+    IOPairs = getIOPairs(files, outputNames, directory, outputDir)
     whitelist = processFilterList(whitelists)
     blacklist = processFilterList(blacklists)
     
@@ -206,8 +138,7 @@ def parse(
         outputDir.mkdir()
     
     if delete:
-        for file in [file for file in outputDir.iterdir() if file.is_file()]:
-            os.remove(file)
+        clearDirectory(outputDir)
     
     for ssaFile in IOPairs:
         processFile(ssaFile, whitelist, blacklist)
