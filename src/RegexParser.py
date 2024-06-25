@@ -5,8 +5,8 @@ import re
 
 from typing import List, Set, Pattern
 from pathlib import Path
-from src.CommonUtils import IOPair, checkFileExistence, clearDirectory, getFileCount, getIOPairs
-from src.Exceptions import InvalidOutputNamesCountException
+from src.CommonUtils import IOPair, checkFileExistence, clearDirectory, getIOPairs
+from src.Exceptions import InvalidOutputCountException
 
 
 outputDir = Path(sys.path[0]).joinpath("output")
@@ -32,15 +32,15 @@ def addSubparser(subparser: argparse.ArgumentParser) -> None:
                         help="Filepaths to newline-separated blacklist files.")
     subparser.add_argument("-w", "--whitelist", dest="whitelists", type=str, nargs='+', default=[],
                         help="Filepaths to newline-separated whitelist files.")
-    subparser.add_argument("-o", "--output", dest="outputNames", type=str, nargs='+', default=[],
-                        help="Output names for each given input, in order.")
+    subparser.add_argument("-o", "--output", dest="output", type=str, nargs='+', default=[],
+                        help="Output paths for each given input, in order.")
 
 
 def checkArguments(
     files: List[str],
     blacklists: Set[str],
     whitelists: Set[str],
-    outputNames: List[str],
+    output: List[str],
     directory: bool,
     delete: bool,
 ) -> None:
@@ -50,10 +50,10 @@ def checkArguments(
     checkFileExistence(blacklists)
     checkFileExistence(whitelists)
 
-    # Check if there is a bijection between the input files and output names
-    fileCount = getFileCount(files, directory)
-    if outputNames and len(outputNames) != fileCount:
-        raise InvalidOutputNamesCountException(f"The amount {len(outputNames)} of output names does not equal the amount {fileCount} of input files!")
+    # Check if there is a bijection between the input files and output paths
+    if output and len(output) != len(files):
+        raise InvalidOutputCountException(f"The amount {len(output)} of output paths does not equal the amount {len(files)} of input files!")
+    checkFileExistence(list(map(lambda path: str(Path(path).parent.absolute()), output)), True)
 
 
 def acceptedByWhitelist(line: str, whitelist: Set[Pattern[str]]) -> bool:
@@ -106,7 +106,7 @@ def parse(
     files: List[str],
     blacklists: Set[str] = set(),
     whitelists: Set[str] = set(),
-    outputNames: List[str] = [],
+    output: List[str] = [],
     directory: bool = False,
     delete: bool = False,
 ) -> None:
@@ -116,7 +116,7 @@ def parse(
         files (List[str]): Filepaths to the ssa files, or directories containing them.
         blacklist (Set[str], optional): Filepaths to newline-separated blacklist files. Defaults to set().
         whitelist (Set[str], optional): Filepaths to newline-separated whitelist files. Defaults to set().
-        outputNames (List[str], optional): Output names for each given input, in order. Defaults to [].
+        output (List[str], optional): Output paths for each given input, in order. Defaults to [].
         directory (bool, optional): Set to True if the `files` argument consists of directories. Defaults to False.
         delete (bool, optional): Set to True if you want the program to clear the output directory first. Defaults to False.
     """
@@ -124,12 +124,12 @@ def parse(
         files,
         blacklists,
         whitelists,
-        outputNames,
+        output,
         directory,
         delete
     )
     
-    IOPairs = getIOPairs(files, outputNames, directory, outputDir)
+    IOPairs = getIOPairs(files, output, directory, outputDir)
     whitelist = processFilterList(whitelists)
     blacklist = processFilterList(blacklists)
     

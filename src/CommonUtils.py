@@ -41,10 +41,6 @@ def checkFileExistence(pathStrings: Iterable[str], directory: bool = False) -> N
             raise NotAFileException(f"{nonexistentFile} is not a file!")
 
 
-def getFileCount(files: Iterable[str], directory: bool) -> int:
-    return len(getFilesInDirectories(list(map(Path, files)))) if directory else len(files)
-
-
 def getInputPaths(
     files: List[str],
     directory: bool,
@@ -65,7 +61,7 @@ def clearDirectory(directory: Path):
 
 def getIOPairs(
     files: List[str],
-    outputNames: List[str],
+    output: List[str],
     directory: bool,
     outputDir: Path
 ) -> Set[IOPair]:
@@ -77,10 +73,7 @@ def getIOPairs(
             lambda pair: IOPair(pair[0], pair[1]),
             zip( # Pair up input files and output files
                 inputPaths,
-                map( # Get output path
-                    lambda name: outputDir.joinpath(name),
-                    # Use output names if provided; otherwise use input names
-                    outputNames if outputNames else list(map(lambda file: Path(file).name, inputPaths)))
-                )
+                # Use output paths if provided; otherwise use input names
+                list(map(Path, output)) if output else list(map(lambda file: outputDir.joinpath(Path(file).name), inputPaths)))
             )
         )
